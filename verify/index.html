@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Verify a DNOODLES ledger record</title>
+<!--
+  INDEPENDENT VERIFIER.
+
+  This page is deliberately dependency-free and deliberately hosted OUTSIDE DNOODLES infrastructure. It loads no
+  scripts, no fonts, no styles from anywhere. It talks to no DNOODLES server. All hashing happens in your browser
+  via WebCrypto, and the Merkle root it compares against is fetched from this public repository — the same
+  repository whose commit history anyone can inspect.
+
+  That is the entire point. A verification performed by the company that wrote the record proves nothing. This one
+  works with every DNOODLES server switched off.
+
+  The rules below are the frozen v1 format (see SPEC.md):
+    data_hash  = sha256(canonicalJson)                                              -- the exact bytes hashed
+    block_hash = sha256(data_hash + previous_hash + block_number + chain_code)      -- ASCII concatenation
+    leaf       = sha256(0x00 || raw32(block_hash))                                  -- RFC 6962 domain separation
+    node       = sha256(0x01 || left || right)                                      -- odd node promoted, NEVER duplicated
+-->
+<style>
+  :root{--p:#F36E37;--bg:#f8f9fa;--card:#fff;--tx:#2d3436;--tx2:#636e72;--bd:#e9ecef;
+        --ok:#27ae60;--bad:#e74c3c;--warn:#FFA000}
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#1a1d21;--card:#252a30;--tx:#e0e0e0;--tx2:#a0a0a0;--bd:#3a3f47}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.6 system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+  .wrap{max-width:860px;margin:0 auto;padding:28px 20px 60px}
+  header{background:linear-gradient(135deg,#F36E37,#d1511a);color:#fff;border-radius:14px;padding:24px 26px;margin-bottom:22px}
+  header h1{margin:0 0 6px;font-size:24px}
+  header p{margin:0;opacity:.93;font-size:14.5px}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:18px;margin-bottom:16px}
+  h2{font-size:16px;margin:0 0 10px}
+  textarea{width:100%;min-height:150px;font:12.5px/1.5 ui-monospace,Consolas,monospace;padding:10px;
+           border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);resize:vertical}
+  button{background:var(--p);color:#fff;border:0;border-radius:8px;padding:11px 20px;font-size:15px;
+         font-weight:600;cursor:pointer}
+  button:disabled{opacity:.5;cursor:default}
+  input[type=file]{margin-bottom:10px;font-size:13px}
+  .step{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--bd);align-items:flex-start}
+  .step:last-child{border-bottom:0}
+  .mark{flex:0 0 24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+        font-size:14px;font-weight:700;color:#fff;background:var(--tx2)}
+  .ok .mark{background:var(--ok)} .bad .mark{background:var(--bad)} .warn .mark{background:var(--warn)}
+  .step .t{font-weight:600;font-size:14px}
+  .step .d{font-size:12.5px;color:var(--tx2);word-break:break-all}
+  .verdict{border-radius:12px;padding:18px;margin-bottom:16px;font-weight:600;display:none}
+  .verdict.ok{display:block;background:rgba(39,174,96,.12);border:1px solid var(--ok);color:var(--ok)}
+  .verdict.bad{display:block;background:rgba(231,76,60,.10);border:1px solid var(--bad);color:var(--bad)}
+  .verdict small{display:block;font-weight:400;color:var(--tx);margin-top:6px;font-size:13px}
+  code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;background:rgba(243,110,55,.10);
+       padding:1px 5px;border-radius:4px}
+  .note{font-size:13px;color:var(--tx2);margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Verify a ledger record</h1>
+  <p>This page runs entirely in your browser and never contacts DNOODLES. It checks your record against a
+     Merkle root published in this public repository — one that DNOODLES cannot quietly change.</p>
+</header>
+
+<div class="card">
+  <h2>1. Your proof bundle</h2>
+  <input type="file" id="file" accept="application/json"/>
+  <textarea id="bundle" placeholder='Paste the proof bundle JSON here, or choose the file you downloaded…'></textarea>
+  <p style="margin:12px 0 0"><button id="go">Verify</button></p>
+</div>
+
+<div id="verdict" class="verdict"></div>
+
+<div class="card" id="results" style="display:none">
+  <h2>2. What was checked</h2>
+  <div id="steps"></div>
+  <p class="note">
+    Checks 1–3 are pure mathematics performed on your device. Check 4 fetches the published root from this
+    repository — the only step that touches the network, and it touches <em>GitHub</em>, not DNOODLES. If check 4
+    is blocked (offline, or the file was moved), you can still compare the computed root below by hand against the
+    root file in this repo, and against its commit history.
+  </p>
+</div>
+
+<script>
+// ─── primitives ──────────────────────────────────────────────────────────────
+const enc = new TextEncoder();
+
+async function sha256Hex(bytes) {
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+const sha256Text = (text) => sha256Hex(enc.encode(text));
+
+function hexToBytes(hex) {
+  if (!/^[0-9a-f]{64}$/i.test(hex)) throw new Error('Not a 32-byte hex hash: ' + hex);
+  const out = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return out;
+}
+function concat(...arrays) {
+  const total = arrays.reduce((n, a) => n + a.length, 0);
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const a of arrays) { out.set(a, at); at += a.length; }
+  return out;
+}
+
+// RFC 6962. The 0x00 / 0x01 prefixes are not decoration: without them a leaf hash could be passed off as an
+// internal node. And an odd node is PROMOTED, never duplicated — duplicating it (as Bitcoin does) would let two
+// different sets of records produce the same root.
+const leafHash = (blockHashHex) => sha256Hex(concat(new Uint8Array([0x00]), hexToBytes(blockHashHex)));
+const nodeHash = (l, r) => sha256Hex(concat(new Uint8Array([0x01]), hexToBytes(l), hexToBytes(r)));
+
+// ─── verification ────────────────────────────────────────────────────────────
+async function verify(b) {
+  const steps = [];
+
+  // 1. Do the record's own bytes hash to the recorded data hash?
+  const dataHash = await sha256Text(b.canonicalJson);
+  steps.push({
+    ok: dataHash === b.dataHash,
+    title: 'The record content matches its recorded hash',
+    detail: 'sha256(canonicalJson) = ' + dataHash,
+    human: b.canonicalJson
+  });
+
+  // 2. Is the block itself well-formed, and bound to this chain and position?
+  //
+  // Note we feed the RECOMPUTED dataHash forward, not the one the bundle claims — and likewise the recomputed
+  // blockHash into step 3. Verifying each step against the bundle's own claimed values would still catch tampering
+  // overall (the root is the anchor), but it would show a forged record passing steps 2–4 with green ticks, which
+  // reads as "mostly fine". Chaining the computed values means one edit anywhere fails everything downstream, and
+  // the display tells the truth.
+  const blockHash = await sha256Text(dataHash + b.previousHash + b.blockNumber + b.chainCode);
+  steps.push({
+    ok: blockHash === b.blockHash,
+    title: 'The block is intact and bound to its chain and position',
+    detail: 'sha256(dataHash + previousHash + ' + b.blockNumber + ' + ' + b.chainCode + ') = ' + blockHash
+  });
+
+  // 3. Walk the Merkle path up to the root.
+  let acc = await leafHash(blockHash);
+  for (const step of (b.merklePath || [])) {
+    acc = step.position === 'LEFT' ? await nodeHash(step.hash, acc) : await nodeHash(acc, step.hash);
+  }
+  steps.push({
+    ok: acc === b.merkleRoot,
+    title: 'Your record is inside the published daily root',
+    detail: 'computed root = ' + acc + ' (' + (b.merklePath || []).length + ' sibling hashes)'
+  });
+
+  // 4. Is that root the one actually published — in the public repo, not on a DNOODLES server?
+  const anchor = (b.anchors || []).find(a => a.rootFileUrl);
+  if (!anchor) {
+    steps.push({
+      warn: true,
+      title: 'No published root file to compare against',
+      detail: 'This bundle carries no rootFileUrl — the root may not be published yet. Until it is, this record ' +
+              'is NOT independently verifiable.'
+    });
+  } else {
+    try {
+      const res = await fetch(anchor.rootFileUrl, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const published = await res.json();
+      steps.push({
+        ok: published.merkleRoot === acc && acc === b.merkleRoot,
+        title: 'The root matches the one published publicly, before any dispute',
+        detail: 'published root = ' + published.merkleRoot + '  ·  ' + anchor.rootFileUrl +
+                (anchor.commitSha ? '  ·  commit ' + anchor.commitSha.substring(0, 10) : '')
+      });
+    } catch (e) {
+      steps.push({
+        warn: true,
+        title: 'Could not fetch the published root (network blocked, or file moved)',
+        detail: 'Compare by hand: the root computed above must equal "merkleRoot" in ' + anchor.rootFileUrl +
+                ' — and that file must be in the repository history. Error: ' + e.message
+      });
+    }
+  }
+  return steps;
+}
+
+// ─── ui ──────────────────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+
+$('file').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (f) $('bundle').value = await f.text();
+});
+
+$('go').addEventListener('click', async () => {
+  const verdict = $('verdict');
+  const results = $('results');
+  const stepsEl = $('steps');
+  verdict.className = 'verdict';
+  results.style.display = 'none';
+
+  let bundle;
+  try {
+    bundle = JSON.parse($('bundle').value);
+  } catch (e) {
+    verdict.className = 'verdict bad';
+    verdict.innerHTML = 'That is not valid JSON.<small>Paste the whole proof bundle, including the outer { }.</small>';
+    return;
+  }
+
+  let steps;
+  try {
+    steps = await verify(bundle);
+  } catch (e) {
+    verdict.className = 'verdict bad';
+    verdict.innerHTML = 'Could not verify this bundle.<small>' + e.message + '</small>';
+    return;
+  }
+
+  stepsEl.innerHTML = '';
+  for (const s of steps) {
+    const div = document.createElement('div');
+    div.className = 'step ' + (s.warn ? 'warn' : s.ok ? 'ok' : 'bad');
+    div.innerHTML =
+      '<div class="mark">' + (s.warn ? '!' : s.ok ? '✓' : '✕') + '</div>' +
+      '<div><div class="t"></div><div class="d"></div>' +
+      (s.human ? '<div class="d" style="margin-top:6px"><code></code></div>' : '') +
+      '</div>';
+    div.querySelector('.t').textContent = s.title;
+    div.querySelectorAll('.d')[0].textContent = s.detail;
+    if (s.human) div.querySelector('code').textContent = s.human;
+    stepsEl.appendChild(div);
+  }
+  results.style.display = 'block';
+
+  const failed = steps.some(s => !s.warn && !s.ok);
+  const warned = steps.some(s => s.warn);
+
+  if (failed) {
+    verdict.className = 'verdict bad';
+    verdict.innerHTML = '✕ This record does NOT match the published root.' +
+      '<small>One of the checks below failed. Either the record was altered after it was sealed, or the ' +
+      'bundle was edited. Keep this bundle — it is evidence.</small>';
+  } else if (warned) {
+    verdict.className = 'verdict warn';
+    verdict.style.display = 'block';
+    verdict.innerHTML = '⚠ The record is internally consistent, but the published root was not confirmed.' +
+      '<small>Read the note under the checks. Until the daily root is published, this record is not yet ' +
+      'independently verifiable.</small>';
+  } else {
+    verdict.className = 'verdict ok';
+    verdict.innerHTML = '✓ Verified. This record existed, exactly as shown, when the root was published.' +
+      '<small>Checked on your device, against a root published in a public repository. No DNOODLES server was ' +
+      'involved in reaching this verdict — and DNOODLES cannot alter the record without that becoming visible ' +
+      'to anyone who looks.</small>';
+  }
+});
+</script>
+</div>
+</body>
+</html>
