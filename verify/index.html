@@ -117,6 +117,25 @@ const leafHash = (blockHashHex) => sha256Hex(concat(new Uint8Array([0x00]), hexT
 const nodeHash = (l, r) => sha256Hex(concat(new Uint8Array([0x01]), hexToBytes(l), hexToBytes(r)));
 
 // ─── verification ────────────────────────────────────────────────────────────
+
+// A proof bundle is not the record. People naturally paste the record content they can see — it is the part that
+// looks meaningful to a human. Without this check they get "could not verify", which reads as "your record is
+// suspect" when the truth is "right data, wrong file". Never let a tooling mistake look like a failed proof.
+function describeIfNotABundle(b) {
+  if (b && typeof b === 'object' && !Array.isArray(b) && b.data && !b.canonicalJson) {
+    return 'That is the sealed record content, not the proof bundle. The bundle is the file that also carries the ' +
+           'Merkle path and the published root — without those there is nothing to check the record against. ' +
+           'Open your verification link and press "Download proof bundle", then drop that file here.';
+  }
+  const missing = ['canonicalJson', 'dataHash', 'blockHash', 'merkleRoot']
+      .filter(f => !b || typeof b[f] !== 'string');
+  if (missing.length) {
+    return 'This does not look like a proof bundle — it is missing: ' + missing.join(', ') +
+           '. Download the bundle from your verification link and drop the whole file here, unedited.';
+  }
+  return null;
+}
+
 async function verify(b) {
   const steps = [];
 
@@ -207,6 +226,14 @@ $('go').addEventListener('click', async () => {
   } catch (e) {
     verdict.className = 'verdict bad';
     verdict.innerHTML = 'That is not valid JSON.<small>Paste the whole proof bundle, including the outer { }.</small>';
+    return;
+  }
+
+  const wrongFile = describeIfNotABundle(bundle);
+  if (wrongFile) {
+    verdict.className = 'verdict warn';
+    verdict.style.display = 'block';
+    verdict.innerHTML = 'That is not the proof bundle.<small>' + wrongFile + '</small>';
     return;
   }
 
