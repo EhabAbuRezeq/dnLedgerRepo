@@ -4,8 +4,8 @@
   "statement" : "Liveness statement: every active chain and its latest published root as of this date.",
   "chains" : [ {
     "chainRef" : "d91ae6b59206243b4126ff69c0c95c54",
-    "newBlocks" : 0,
-    "latestRootDate" : "2026-07-13",
-    "latestMerkleRoot" : "31cbf4ad0547065321bcdaa20c0d59685112a48f4e8ceb055b22f4b3784d8d80"
+    "newBlocks" : 1,
+    "latestRootDate" : "2026-07-16",
+    "latestMerkleRoot" : "3f830630acc11da18a4874ada31c52a89e2d59f594a9d27e0604bf7ed136c332"
   } ]
 }
