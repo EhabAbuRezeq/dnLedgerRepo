@@ -1,0 +1,15 @@
+{
+  "formatVersion" : 1,
+  "chainRef" : "ffd4bf06d7fa1267a0c4688c20942dea",
+  "rootDate" : "2026-07-21",
+  "merkleRoot" : "b74808731357db463b23eca01d4ab24b916df87242ff39737020c8ab40fe89ca",
+  "previousRootHash" : null,
+  "firstBlock" : 1,
+  "lastBlock" : 6,
+  "blockCount" : 6,
+  "hashAlgoVersion" : 1,
+  "sealedAt" : "2026-07-21T23:30:00.021739Z",
+  "signature" : null,
+  "keyId" : null,
+  "spec" : "See SPEC.md — leaf=sha256(0x00||blockHash), node=sha256(0x01||L||R), RFC 6962."
+}
