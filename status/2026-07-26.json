@@ -3,9 +3,29 @@
   "date" : "2026-07-26",
   "statement" : "Liveness statement: every active chain and its latest published root as of this date.",
   "chains" : [ {
+    "chainRef" : "749b634084045e51ae60979e20cc6f39",
+    "newBlocks" : 12001,
+    "latestRootDate" : "2026-07-26",
+    "latestMerkleRoot" : "351dccaabbf72a626edf49c0e7b30d255e7d2e97751424a453d0ed6ad596d0f6"
+  }, {
+    "chainRef" : "8292a68ebb243add39356ebff9a8cc23",
+    "newBlocks" : 24001,
+    "latestRootDate" : "2026-07-26",
+    "latestMerkleRoot" : "66288ab1b637ebd42f1e9eae772d2d8b54993dd888ca36e096bfdf11dde26c6a"
+  }, {
     "chainRef" : "ffd4bf06d7fa1267a0c4688c20942dea",
     "newBlocks" : 2,
     "latestRootDate" : "2026-07-26",
     "latestMerkleRoot" : "43ca0b860c9cdeaded3b0b536370b3b7622a7bb70af5d3eea6aceca28be3506f"
+  }, {
+    "chainRef" : "4ab6919472557e7c87633629294ad4ba",
+    "newBlocks" : 12000,
+    "latestRootDate" : "2026-07-26",
+    "latestMerkleRoot" : "7ff85f72d5cccba30681bd01e0dbae96e9bbb24311be99593689622c1a88ce36"
+  }, {
+    "chainRef" : "9daf2c92e9a6f3bc7f18bd7edaa55d05",
+    "newBlocks" : 12000,
+    "latestRootDate" : "2026-07-26",
+    "latestMerkleRoot" : "b1947579912ed242ad3ea91765e88673c9ddfec311460d11da3a9dab5d020326"
   } ]
 }
