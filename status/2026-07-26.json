@@ -1,0 +1,11 @@
+{
+  "formatVersion" : 1,
+  "date" : "2026-07-26",
+  "statement" : "Liveness statement: every active chain and its latest published root as of this date.",
+  "chains" : [ {
+    "chainRef" : "ffd4bf06d7fa1267a0c4688c20942dea",
+    "newBlocks" : 2,
+    "latestRootDate" : "2026-07-26",
+    "latestMerkleRoot" : "43ca0b860c9cdeaded3b0b536370b3b7622a7bb70af5d3eea6aceca28be3506f"
+  } ]
+}
