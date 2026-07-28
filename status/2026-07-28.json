@@ -1,0 +1,6 @@
+{
+  "formatVersion" : 1,
+  "date" : "2026-07-28",
+  "statement" : "Liveness statement: every active chain and its latest published root as of this date.",
+  "chains" : [ ]
+}

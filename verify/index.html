@@ -55,6 +55,9 @@
   code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;background:rgba(243,110,55,.10);
        padding:1px 5px;border-radius:4px}
   .note{font-size:13px;color:var(--tx2);margin-top:14px}
+  .kv{display:grid;grid-template-columns:minmax(160px,220px) 1fr;gap:8px 12px;margin-top:8px}
+  .kv .k{font-weight:600;color:var(--tx2)}
+  .kv .v{word-break:break-word}
 </style>
 </head>
 <body>
@@ -84,6 +87,12 @@
     is blocked (offline, or the file was moved), you can still compare the computed root below by hand against the
     root file in this repo, and against its commit history.
   </p>
+</div>
+
+<div class="card" id="displayRowsCard" style="display:none">
+  <h2>3. Record display attributes</h2>
+  <div id="displayRows"></div>
+  <p class="note">These fields come from sealed display rules in the proof bundle and are shown here for human readability.</p>
 </div>
 
 <script>
@@ -208,6 +217,43 @@ async function verify(b) {
 // ─── ui ──────────────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
 
+function renderDisplayRows(bundle) {
+  const card = $('displayRowsCard');
+  const box = $('displayRows');
+  box.innerHTML = '';
+
+  const rows = Array.isArray(bundle?.displayRows) ? bundle.displayRows : [];
+  if (!rows.length) {
+    card.style.display = 'none';
+    return;
+  }
+
+  for (const r of rows) {
+    if (!r || typeof r !== 'object') continue;
+    const value = (r.value ?? '').toString();
+    if (!value) continue;
+
+    const label = (r.label ?? r.labelEn ?? r.labelAr ?? '').toString();
+    const row = document.createElement('div');
+    row.className = 'kv';
+
+    const k = document.createElement('div');
+    k.className = 'k';
+    k.textContent = label || 'Field';
+
+    const v = document.createElement('div');
+    v.className = 'v';
+    v.textContent = value;
+
+    row.appendChild(k);
+    row.appendChild(v);
+    box.appendChild(row);
+  }
+
+  card.style.display = box.children.length ? 'block' : 'none';
+}
+
+
 $('file').addEventListener('change', async (e) => {
   const f = e.target.files[0];
   if (f) $('bundle').value = await f.text();
@@ -217,8 +263,10 @@ $('go').addEventListener('click', async () => {
   const verdict = $('verdict');
   const results = $('results');
   const stepsEl = $('steps');
+  const displayRowsCard = $('displayRowsCard');
   verdict.className = 'verdict';
   results.style.display = 'none';
+  displayRowsCard.style.display = 'none';
 
   let bundle;
   try {
@@ -261,6 +309,7 @@ $('go').addEventListener('click', async () => {
     stepsEl.appendChild(div);
   }
   results.style.display = 'block';
+  renderDisplayRows(bundle);
 
   const failed = steps.some(s => !s.warn && !s.ok);
   const warned = steps.some(s => s.warn);
