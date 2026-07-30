@@ -20,6 +20,10 @@
     block_hash = sha256(data_hash + previous_hash + block_number + chain_code)      -- ASCII concatenation
     leaf       = sha256(0x00 || raw32(block_hash))                                  -- RFC 6962 domain separation
     node       = sha256(0x01 || left || right)                                      -- odd node promoted, NEVER duplicated
+
+  i18n is client-side only (EN/AR dictionary below) — there is no server to render a locale from. Hex hashes,
+  timestamps and other technical values stay dir="ltr" even in RTL mode; bidi-reordering a hash makes it unreadable
+  and un-copyable.
 -->
 <style>
   :root{--p:#F36E37;--bg:#f8f9fa;--card:#fff;--tx:#2d3436;--tx2:#636e72;--bd:#e9ecef;
@@ -30,13 +34,20 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.6 system-ui,-apple-system,Segoe UI,Arial,sans-serif}
   .wrap{max-width:860px;margin:0 auto;padding:28px 20px 60px}
-  header{background:linear-gradient(135deg,#F36E37,#d1511a);color:#fff;border-radius:14px;padding:24px 26px;margin-bottom:22px}
+  header{background:linear-gradient(135deg,#F36E37,#d1511a);color:#fff;border-radius:14px;padding:24px 26px;margin-bottom:22px;
+         position:relative}
   header h1{margin:0 0 6px;font-size:24px}
-  header p{margin:0;opacity:.93;font-size:14.5px}
+  header p{margin:0;opacity:.93;font-size:14.5px;max-width:640px}
+  .langToggle{position:absolute;top:20px;inset-inline-end:22px;display:flex;background:rgba(255,255,255,.18);
+              border-radius:8px;padding:3px;gap:2px}
+  .langToggle button{background:transparent;color:#fff;opacity:.75;border-radius:6px;padding:6px 12px;
+                      font-size:13px;font-weight:600;box-shadow:none}
+  .langToggle button.active{background:#fff;color:#d1511a;opacity:1}
   .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:18px;margin-bottom:16px}
   h2{font-size:16px;margin:0 0 10px}
   textarea{width:100%;min-height:150px;font:12.5px/1.5 ui-monospace,Consolas,monospace;padding:10px;
-           border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);resize:vertical}
+           border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);resize:vertical;
+           direction:ltr;text-align:left}
   button{background:var(--p);color:#fff;border:0;border-radius:8px;padding:11px 20px;font-size:15px;
          font-weight:600;cursor:pointer}
   button:disabled{opacity:.5;cursor:default}
@@ -47,13 +58,16 @@
         font-size:14px;font-weight:700;color:#fff;background:var(--tx2)}
   .ok .mark{background:var(--ok)} .bad .mark{background:var(--bad)} .warn .mark{background:var(--warn)}
   .step .t{font-weight:600;font-size:14px}
-  .step .d{font-size:12.5px;color:var(--tx2);word-break:break-all}
+  .step .d{font-size:12.5px;color:var(--tx2);word-break:break-all;direction:ltr;text-align:left}
   .verdict{border-radius:12px;padding:18px;margin-bottom:16px;font-weight:600;display:none}
   .verdict.ok{display:block;background:rgba(39,174,96,.12);border:1px solid var(--ok);color:var(--ok)}
   .verdict.bad{display:block;background:rgba(231,76,60,.10);border:1px solid var(--bad);color:var(--bad)}
   .verdict small{display:block;font-weight:400;color:var(--tx);margin-top:6px;font-size:13px}
+  .issuerLine{display:flex;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid var(--bd);
+              font-size:14px}
+  .issuerLine .mark{background:var(--ok)}
   code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;background:rgba(243,110,55,.10);
-       padding:1px 5px;border-radius:4px}
+       padding:1px 5px;border-radius:4px;direction:ltr;unicode-bidi:embed}
   .note{font-size:13px;color:var(--tx2);margin-top:14px}
   .kv{display:grid;grid-template-columns:minmax(160px,220px) 1fr;gap:8px 12px;margin-top:8px}
   .kv .k{font-weight:600;color:var(--tx2)}
@@ -64,38 +78,123 @@
 <div class="wrap">
 
 <header>
-  <h1>Verify a ledger record</h1>
-  <p>This page runs entirely in your browser and never contacts DNOODLES. It checks your record against a
-     Merkle root published in this public repository — one that DNOODLES cannot quietly change.</p>
+  <div class="langToggle" id="langToggle">
+    <button type="button" data-lang="en">EN</button>
+    <button type="button" data-lang="ar">عربي</button>
+  </div>
+  <h1 data-i18n="title"></h1>
+  <p data-i18n="intro"></p>
 </header>
 
 <div class="card">
-  <h2>1. Your proof bundle</h2>
+  <h2 data-i18n="step1Title"></h2>
   <input type="file" id="file" accept="application/json"/>
-  <textarea id="bundle" placeholder='Paste the proof bundle JSON here, or choose the file you downloaded…'></textarea>
-  <p style="margin:12px 0 0"><button id="go">Verify</button></p>
+  <textarea id="bundle" data-i18n-placeholder="pasteHint"></textarea>
+  <p style="margin:12px 0 0"><button id="go" data-i18n="verifyBtn"></button></p>
 </div>
 
 <div id="verdict" class="verdict"></div>
 
+<div id="issuerCard" class="card" style="display:none">
+  <div class="issuerLine"><div class="mark">✓</div><div><span data-i18n="issuedByLabel"></span> <strong id="issuerName"></strong></div></div>
+</div>
+
 <div class="card" id="results" style="display:none">
-  <h2>2. What was checked</h2>
+  <h2 data-i18n="step2Title"></h2>
   <div id="steps"></div>
-  <p class="note">
-    Checks 1–3 are pure mathematics performed on your device. Check 4 fetches the published root from this
-    repository — the only step that touches the network, and it touches <em>GitHub</em>, not DNOODLES. If check 4
-    is blocked (offline, or the file was moved), you can still compare the computed root below by hand against the
-    root file in this repo, and against its commit history.
-  </p>
+  <p class="note" data-i18n="step2Note"></p>
 </div>
 
 <div class="card" id="displayRowsCard" style="display:none">
-  <h2>3. Record display attributes</h2>
+  <h2 data-i18n="step3Title"></h2>
   <div id="displayRows"></div>
-  <p class="note">These fields come from sealed display rules in the proof bundle and are shown here for human readability.</p>
+  <p class="note" data-i18n="step3Note"></p>
 </div>
 
 <script>
+// ─── i18n ──────────────────────────────────────────────────────────────────
+const I18N = {
+  en: {
+    title: 'Verify a ledger record',
+    intro: 'This page runs entirely in your browser and never contacts DNOODLES. It checks your record against a Merkle root published in this public repository — one that DNOODLES cannot quietly change.',
+    step1Title: '1. Your proof bundle',
+    pasteHint: 'Paste the proof bundle JSON here, or choose the file you downloaded…',
+    verifyBtn: 'Verify',
+    step2Title: '2. What was checked',
+    step2Note: 'Checks 1–3 are pure mathematics performed on your device. Check 4 fetches the published root from this repository — the only step that touches the network, and it touches GitHub, not DNOODLES. If check 4 is blocked (offline, or the file was moved), you can still compare the computed root below by hand against the root file in this repo, and against its commit history.',
+    step3Title: '3. Record display attributes',
+    step3Note: 'These fields come from sealed display rules in the proof bundle and are shown here for human readability.',
+    issuedByLabel: 'Issued by',
+    fieldFallback: 'Field',
+    notJsonTitle: 'That is not valid JSON.',
+    notJsonDetail: 'Paste the whole proof bundle, including the outer { }.',
+    notBundleTitle: 'That is not the proof bundle.',
+    notBundleIsRecord: 'That is the sealed record content, not the proof bundle. The bundle is the file that also carries the Merkle path and the published root — without those there is nothing to check the record against. Open your verification link and press "Download proof bundle", then drop that file here.',
+    notBundleMissing: 'This does not look like a proof bundle — it is missing: {fields}. Download the bundle from your verification link and drop the whole file here, unedited.',
+    couldNotVerifyTitle: 'Could not verify this bundle.',
+    verdictBadTitle: '✕ This record does NOT match the published root.',
+    verdictBadDetail: 'One of the checks below failed. Either the record was altered after it was sealed, or the bundle was edited. Keep this bundle — it is evidence.',
+    verdictWarnTitle: '⚠ The record is internally consistent, but the published root was not confirmed.',
+    verdictWarnDetail: 'Read the note under the checks. Until the daily root is published, this record is not yet independently verifiable.',
+    verdictOkTitle: '✓ Verified. This record existed, exactly as shown, when the root was published.',
+    verdictOkDetail: 'Checked on your device, against a root published in a public repository. No DNOODLES server was involved in reaching this verdict — and DNOODLES cannot alter the record without that becoming visible to anyone who looks.',
+    stepDataTitle: 'The record content matches its recorded hash',
+    stepBlockTitle: 'The block is intact and bound to its chain and position',
+    stepRootTitle: 'Your record is inside the published daily root',
+    stepAnchorMissingTitle: 'No published root file to compare against',
+    stepAnchorMissingDetail: 'This bundle carries no rootFileUrl — the root may not be published yet. Until it is, this record is NOT independently verifiable.',
+    stepAnchorOkTitle: 'The root matches the one published publicly, before any dispute',
+    stepAnchorFailTitle: 'Could not fetch the published root (network blocked, or file moved)',
+    stepAnchorFailDetailPrefix: 'Compare by hand: the root computed above must equal "merkleRoot" in',
+    stepAnchorFailDetailSuffix: '— and that file must be in the repository history. Error:',
+  },
+  ar: {
+    title: 'التحقق من سجل في السجل الموثّق',
+    intro: 'تعمل هذه الصفحة بالكامل داخل متصفحك ولا تتصل بخوادم DNOODLES إطلاقًا. تتحقق من سجلك مقابل جذر ميركل منشور في هذا المستودع العام — وهو جذر لا تستطيع DNOODLES تغييره بصمت.',
+    step1Title: '١. حزمة الإثبات الخاصة بك',
+    pasteHint: 'الصق ملف JSON لحزمة الإثبات هنا، أو اختر الملف الذي نزّلته…',
+    verifyBtn: 'تحقّق',
+    step2Title: '٢. ما الذي تم التحقق منه',
+    step2Note: 'الفحوصات ١–٣ عمليات حسابية بحتة تجري على جهازك. الفحص ٤ يجلب الجذر المنشور من هذا المستودع — وهي الخطوة الوحيدة التي تتصل بالشبكة، وتتصل بـ GitHub وليس بـ DNOODLES. إذا كان الفحص ٤ محجوبًا (لا يوجد اتصال، أو نُقل الملف)، يمكنك مقارنة الجذر المحسوب أدناه يدويًا مع ملف الجذر في هذا المستودع، ومع سجل تغييراته (commit history).',
+    step3Title: '٣. سمات عرض السجل',
+    step3Note: 'تأتي هذه الحقول من قواعد عرض مختومة داخل حزمة الإثبات، وتُعرض هنا لسهولة القراءة.',
+    issuedByLabel: 'صادر من',
+    fieldFallback: 'حقل',
+    notJsonTitle: 'هذا ليس JSON صالحًا.',
+    notJsonDetail: 'الصق حزمة الإثبات كاملة، متضمنة الأقواس الخارجية { }.',
+    notBundleTitle: 'هذه ليست حزمة الإثبات.',
+    notBundleIsRecord: 'هذا هو محتوى السجل المختوم، وليس حزمة الإثبات. الحزمة هي الملف الذي يحمل أيضًا مسار ميركل والجذر المنشور — بدونهما لا يوجد ما يُقارَن به السجل. افتح رابط التحقق الخاص بك واضغط "تنزيل حزمة الإثبات"، ثم أسقط ذلك الملف هنا.',
+    notBundleMissing: 'هذا لا يبدو كحزمة إثبات — الحقول الناقصة: {fields}. نزّل الحزمة من رابط التحقق الخاص بك وأسقط الملف كاملاً هنا دون تعديل.',
+    couldNotVerifyTitle: 'تعذّر التحقق من هذه الحزمة.',
+    verdictBadTitle: '✕ هذا السجل لا يطابق الجذر المنشور.',
+    verdictBadDetail: 'فشل أحد الفحوصات أدناه. إمّا أن السجل عُدّل بعد ختمه، أو أن الحزمة نفسها عُدّلت. احتفظ بهذه الحزمة — فهي دليل.',
+    verdictWarnTitle: '⚠ السجل متّسق داخليًا، لكن لم يتم تأكيد الجذر المنشور.',
+    verdictWarnDetail: 'اقرأ الملاحظة أسفل الفحوصات. إلى أن يُنشر الجذر اليومي، هذا السجل غير قابل للتحقق المستقل بعد.',
+    verdictOkTitle: '✓ تم التحقق. كان هذا السجل موجودًا، تمامًا كما هو معروض، وقت نشر الجذر.',
+    verdictOkDetail: 'تم الفحص على جهازك، مقابل جذر منشور في مستودع عام. لم يشارك أي خادم من DNOODLES في الوصول إلى هذه النتيجة — ولا تستطيع DNOODLES تعديل السجل دون أن يصبح ذلك ظاهرًا لأي شخص يتحقق.',
+    stepDataTitle: 'محتوى السجل يطابق بصمته المسجّلة',
+    stepBlockTitle: 'الكتلة سليمة ومرتبطة بسلسلتها وموضعها',
+    stepRootTitle: 'سجلك موجود داخل الجذر اليومي المنشور',
+    stepAnchorMissingTitle: 'لا يوجد ملف جذر منشور للمقارنة',
+    stepAnchorMissingDetail: 'لا تحمل هذه الحزمة rootFileUrl — قد يكون الجذر لم يُنشر بعد. إلى أن يُنشر، هذا السجل غير قابل للتحقق المستقل.',
+    stepAnchorOkTitle: 'الجذر يطابق الجذر المنشور علنًا، قبل وقوع أي نزاع',
+    stepAnchorFailTitle: 'تعذّر جلب الجذر المنشور (الشبكة محجوبة، أو نُقل الملف)',
+    stepAnchorFailDetailPrefix: 'قارن يدويًا: يجب أن يساوي الجذر المحسوب أعلاه قيمة "merkleRoot" في',
+    stepAnchorFailDetailSuffix: '— ويجب أن يكون ذلك الملف موجودًا في سجل تغييرات المستودع. الخطأ:',
+  },
+};
+
+let lang = 'en';
+const t = (key) => I18N[lang][key] ?? I18N.en[key] ?? key;
+
+function applyStaticI18n() {
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  document.querySelectorAll('#langToggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+}
+
 // ─── primitives ──────────────────────────────────────────────────────────────
 const enc = new TextEncoder();
 
@@ -132,19 +231,18 @@ const nodeHash = (l, r) => sha256Hex(concat(new Uint8Array([0x01]), hexToBytes(l
 // suspect" when the truth is "right data, wrong file". Never let a tooling mistake look like a failed proof.
 function describeIfNotABundle(b) {
   if (b && typeof b === 'object' && !Array.isArray(b) && b.data && !b.canonicalJson) {
-    return 'That is the sealed record content, not the proof bundle. The bundle is the file that also carries the ' +
-           'Merkle path and the published root — without those there is nothing to check the record against. ' +
-           'Open your verification link and press "Download proof bundle", then drop that file here.';
+    return t('notBundleIsRecord');
   }
   const missing = ['canonicalJson', 'dataHash', 'blockHash', 'merkleRoot']
       .filter(f => !b || typeof b[f] !== 'string');
   if (missing.length) {
-    return 'This does not look like a proof bundle — it is missing: ' + missing.join(', ') +
-           '. Download the bundle from your verification link and drop the whole file here, unedited.';
+    return t('notBundleMissing').replace('{fields}', missing.join(', '));
   }
   return null;
 }
 
+// Step titles are translation keys, not literal strings, so a language switch after verifying can re-render the
+// same computed result without re-hashing anything.
 async function verify(b) {
   const steps = [];
 
@@ -152,7 +250,7 @@ async function verify(b) {
   const dataHash = await sha256Text(b.canonicalJson);
   steps.push({
     ok: dataHash === b.dataHash,
-    title: 'The record content matches its recorded hash',
+    titleKey: 'stepDataTitle',
     detail: 'sha256(canonicalJson) = ' + dataHash,
     human: b.canonicalJson
   });
@@ -167,7 +265,7 @@ async function verify(b) {
   const blockHash = await sha256Text(dataHash + b.previousHash + b.blockNumber + b.chainCode);
   steps.push({
     ok: blockHash === b.blockHash,
-    title: 'The block is intact and bound to its chain and position',
+    titleKey: 'stepBlockTitle',
     detail: 'sha256(dataHash + previousHash + ' + b.blockNumber + ' + ' + b.chainCode + ') = ' + blockHash
   });
 
@@ -178,19 +276,14 @@ async function verify(b) {
   }
   steps.push({
     ok: acc === b.merkleRoot,
-    title: 'Your record is inside the published daily root',
+    titleKey: 'stepRootTitle',
     detail: 'computed root = ' + acc + ' (' + (b.merklePath || []).length + ' sibling hashes)'
   });
 
   // 4. Is that root the one actually published — in the public repo, not on a DNOODLES server?
   const anchor = (b.anchors || []).find(a => a.rootFileUrl);
   if (!anchor) {
-    steps.push({
-      warn: true,
-      title: 'No published root file to compare against',
-      detail: 'This bundle carries no rootFileUrl — the root may not be published yet. Until it is, this record ' +
-              'is NOT independently verifiable.'
-    });
+    steps.push({ warn: true, titleKey: 'stepAnchorMissingTitle', detail: t('stepAnchorMissingDetail') });
   } else {
     try {
       const res = await fetch(anchor.rootFileUrl, { cache: 'no-store' });
@@ -198,16 +291,16 @@ async function verify(b) {
       const published = await res.json();
       steps.push({
         ok: published.merkleRoot === acc && acc === b.merkleRoot,
-        title: 'The root matches the one published publicly, before any dispute',
+        titleKey: 'stepAnchorOkTitle',
         detail: 'published root = ' + published.merkleRoot + '  ·  ' + anchor.rootFileUrl +
                 (anchor.commitSha ? '  ·  commit ' + anchor.commitSha.substring(0, 10) : '')
       });
     } catch (e) {
       steps.push({
         warn: true,
-        title: 'Could not fetch the published root (network blocked, or file moved)',
-        detail: 'Compare by hand: the root computed above must equal "merkleRoot" in ' + anchor.rootFileUrl +
-                ' — and that file must be in the repository history. Error: ' + e.message
+        titleKey: 'stepAnchorFailTitle',
+        detail: t('stepAnchorFailDetailPrefix') + ' ' + anchor.rootFileUrl + ' ' +
+                t('stepAnchorFailDetailSuffix') + ' ' + e.message
       });
     }
   }
@@ -216,6 +309,19 @@ async function verify(b) {
 
 // ─── ui ──────────────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
+
+// Last computed result, kept so a language toggle re-renders instead of re-verifying (re-hashing is wasted work,
+// and re-fetching the root a second time just to switch labels would be a strange thing for a "never talks to the
+// network more than it has to" page to do).
+let lastBundle = null;
+let lastSteps = null;
+
+function renderIssuer(bundle) {
+  const card = $('issuerCard');
+  if (!bundle || !bundle.issuerName) { card.style.display = 'none'; return; }
+  $('issuerName').textContent = bundle.issuerName;
+  card.style.display = 'block';
+}
 
 function renderDisplayRows(bundle) {
   const card = $('displayRowsCard');
@@ -233,13 +339,18 @@ function renderDisplayRows(bundle) {
     const value = (r.value ?? '').toString();
     if (!value) continue;
 
-    const label = (r.label ?? r.labelEn ?? r.labelAr ?? '').toString();
+    // Prefer the language-specific label; fall back through the other language, then the default, before the
+    // generic placeholder — a row sealed before C2's bilingual labels only ever has `label`.
+    const label = (lang === 'ar'
+        ? (r.labelAr ?? r.labelEn ?? r.label)
+        : (r.labelEn ?? r.label ?? r.labelAr)) || t('fieldFallback');
+
     const row = document.createElement('div');
     row.className = 'kv';
 
     const k = document.createElement('div');
     k.className = 'k';
-    k.textContent = label || 'Field';
+    k.textContent = label;
 
     const v = document.createElement('div');
     v.className = 'v';
@@ -253,47 +364,8 @@ function renderDisplayRows(bundle) {
   card.style.display = box.children.length ? 'block' : 'none';
 }
 
-
-$('file').addEventListener('change', async (e) => {
-  const f = e.target.files[0];
-  if (f) $('bundle').value = await f.text();
-});
-
-$('go').addEventListener('click', async () => {
-  const verdict = $('verdict');
-  const results = $('results');
+function renderSteps(steps) {
   const stepsEl = $('steps');
-  const displayRowsCard = $('displayRowsCard');
-  verdict.className = 'verdict';
-  results.style.display = 'none';
-  displayRowsCard.style.display = 'none';
-
-  let bundle;
-  try {
-    bundle = JSON.parse($('bundle').value);
-  } catch (e) {
-    verdict.className = 'verdict bad';
-    verdict.innerHTML = 'That is not valid JSON.<small>Paste the whole proof bundle, including the outer { }.</small>';
-    return;
-  }
-
-  const wrongFile = describeIfNotABundle(bundle);
-  if (wrongFile) {
-    verdict.className = 'verdict warn';
-    verdict.style.display = 'block';
-    verdict.innerHTML = 'That is not the proof bundle.<small>' + wrongFile + '</small>';
-    return;
-  }
-
-  let steps;
-  try {
-    steps = await verify(bundle);
-  } catch (e) {
-    verdict.className = 'verdict bad';
-    verdict.innerHTML = 'Could not verify this bundle.<small>' + e.message + '</small>';
-    return;
-  }
-
   stepsEl.innerHTML = '';
   for (const s of steps) {
     const div = document.createElement('div');
@@ -303,36 +375,100 @@ $('go').addEventListener('click', async () => {
       '<div><div class="t"></div><div class="d"></div>' +
       (s.human ? '<div class="d" style="margin-top:6px"><code></code></div>' : '') +
       '</div>';
-    div.querySelector('.t').textContent = s.title;
+    div.querySelector('.t').textContent = t(s.titleKey);
     div.querySelectorAll('.d')[0].textContent = s.detail;
     if (s.human) div.querySelector('code').textContent = s.human;
     stepsEl.appendChild(div);
   }
-  results.style.display = 'block';
-  renderDisplayRows(bundle);
+  $('results').style.display = 'block';
+}
 
+function renderVerdict(steps) {
+  const verdict = $('verdict');
   const failed = steps.some(s => !s.warn && !s.ok);
   const warned = steps.some(s => s.warn);
 
   if (failed) {
     verdict.className = 'verdict bad';
-    verdict.innerHTML = '✕ This record does NOT match the published root.' +
-      '<small>One of the checks below failed. Either the record was altered after it was sealed, or the ' +
-      'bundle was edited. Keep this bundle — it is evidence.</small>';
+    verdict.innerHTML = t('verdictBadTitle') + '<small>' + t('verdictBadDetail') + '</small>';
   } else if (warned) {
     verdict.className = 'verdict warn';
     verdict.style.display = 'block';
-    verdict.innerHTML = '⚠ The record is internally consistent, but the published root was not confirmed.' +
-      '<small>Read the note under the checks. Until the daily root is published, this record is not yet ' +
-      'independently verifiable.</small>';
+    verdict.innerHTML = t('verdictWarnTitle') + '<small>' + t('verdictWarnDetail') + '</small>';
   } else {
     verdict.className = 'verdict ok';
-    verdict.innerHTML = '✓ Verified. This record existed, exactly as shown, when the root was published.' +
-      '<small>Checked on your device, against a root published in a public repository. No DNOODLES server was ' +
-      'involved in reaching this verdict — and DNOODLES cannot alter the record without that becoming visible ' +
-      'to anyone who looks.</small>';
+    verdict.innerHTML = t('verdictOkTitle') + '<small>' + t('verdictOkDetail') + '</small>';
   }
+}
+
+function renderAll() {
+  applyStaticI18n();
+  if (!lastSteps) return;
+  renderIssuer(lastBundle);
+  renderSteps(lastSteps);
+  renderDisplayRows(lastBundle);
+  renderVerdict(lastSteps);
+}
+
+$('langToggle').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-lang]');
+  if (!btn || btn.dataset.lang === lang) return;
+  lang = btn.dataset.lang;
+  renderAll();
 });
+
+$('file').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (f) $('bundle').value = await f.text();
+});
+
+$('go').addEventListener('click', async () => {
+  const verdict = $('verdict');
+  const results = $('results');
+  const displayRowsCard = $('displayRowsCard');
+  const issuerCard = $('issuerCard');
+  verdict.className = 'verdict';
+  results.style.display = 'none';
+  displayRowsCard.style.display = 'none';
+  issuerCard.style.display = 'none';
+  lastBundle = null;
+  lastSteps = null;
+
+  let bundle;
+  try {
+    bundle = JSON.parse($('bundle').value);
+  } catch (e) {
+    verdict.className = 'verdict bad';
+    verdict.innerHTML = t('notJsonTitle') + '<small>' + t('notJsonDetail') + '</small>';
+    return;
+  }
+
+  const wrongFile = describeIfNotABundle(bundle);
+  if (wrongFile) {
+    verdict.className = 'verdict warn';
+    verdict.style.display = 'block';
+    verdict.innerHTML = t('notBundleTitle') + '<small>' + wrongFile + '</small>';
+    return;
+  }
+
+  let steps;
+  try {
+    steps = await verify(bundle);
+  } catch (e) {
+    verdict.className = 'verdict bad';
+    verdict.innerHTML = t('couldNotVerifyTitle') + '<small>' + e.message + '</small>';
+    return;
+  }
+
+  lastBundle = bundle;
+  lastSteps = steps;
+  renderIssuer(bundle);
+  renderSteps(steps);
+  renderDisplayRows(bundle);
+  renderVerdict(steps);
+});
+
+applyStaticI18n();
 </script>
 </div>
 </body>
